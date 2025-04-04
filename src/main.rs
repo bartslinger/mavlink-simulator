@@ -3,18 +3,23 @@ use crate::fixed_wing::FixedWing;
 
 mod coordinate_systems;
 mod fixed_wing;
-mod realtime_sim;
+mod simulator;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     // Initialize logging
     tracing_subscriber::fmt::init();
 
     tracing::info!("Hello, world!");
 
-    let mut fixed_wing = FixedWing::new(LLA::new(52.0, 4.5, 100.0), 25.0.degrees());
+    let simulator = simulator::Simulator::new();
 
-    for i in 0..10 {
-        fixed_wing.simulate(0.1);
-        tracing::info!("Local Position: {:?}", fixed_wing.local_position());
+    let (uplink_tx, uplink_rx) = tokio::sync::mpsc::channel(10);
+    let (downlink_tx, downlink_rx) = tokio::sync::mpsc::channel(10);
+
+    tokio::select! {
+        v = simulator.run(downlink_tx, uplink_rx) => {
+            tracing::warn!("Simulator stopped: {:?}", v);
+        }
     }
 }
