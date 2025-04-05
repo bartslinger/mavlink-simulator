@@ -1,11 +1,6 @@
-use crate::coordinate_systems::{AngleExt, LLA};
-use crate::fixed_wing::FixedWing;
-use mavlink::common::{MavAutopilot, MavMessage, MavModeFlag, MavState, MavType, HEARTBEAT_DATA};
-use mavlink::{write_versioned_msg, MAVLinkV2MessageRaw, MavHeader, Message};
-use std::io::BufRead;
+use mavlink::MavHeader;
 use std::sync::Arc;
 
-mod coordinate_systems;
 mod fixed_wing;
 mod simulator;
 
@@ -27,17 +22,14 @@ async fn main() -> Result<(), anyhow::Error> {
         mavlink::connect_async::<mavlink::ardupilotmega::MavMessage>("udpout:127.0.0.1:14550")
             .await?,
     );
-
     let uplink = conn.clone();
     let downlink = conn;
-    // let uplink_socket = Arc::new(tokio::net::UdpSocket::bind("0.0.0.0:0").await?);
-    // uplink_socket.connect("127.0.0.1:14550").await?;
-    // let downlink_socket = uplink_socket.clone();
 
     let (uplink_tx, uplink_rx) = tokio::sync::mpsc::channel(10);
     let (downlink_tx, mut downlink_rx) =
         tokio::sync::mpsc::channel::<mavlink::ardupilotmega::MavMessage>(10);
 
+    // Downlink task receives from simulator and sends to UDP
     let downlink_task = async move {
         loop {
             if let Some(message) = downlink_rx.recv().await {
@@ -52,9 +44,10 @@ async fn main() -> Result<(), anyhow::Error> {
         }
     };
 
+    // Uplink task receives on UDP and forwards to simulator
     let uplink_task = async move {
         loop {
-            if let Ok((header, message)) = uplink.recv().await {
+            if let Ok((_header, message)) = uplink.recv().await {
                 if let Err(e) = uplink_tx.try_send(message) {
                     tracing::error!("Failed to forward uplink message: {:?}", e);
                 }
@@ -67,14 +60,13 @@ async fn main() -> Result<(), anyhow::Error> {
 
     tokio::select! {
         v = simulator.run(downlink_tx, uplink_rx) => {
-            tracing::warn!("Simulator stopped: {:?}", v);
+            anyhow::bail!("Simulator stopped: {:?}", v);
         }
         v = downlink_task => {
-            tracing::warn!("Downlink task stopped: {:?}", v);
+            anyhow::bail!("Downlink task stopped: {:?}", v);
         }
         v = uplink_task => {
-            tracing::warn!("Uplink task stopped: {:?}", v);
+            anyhow::bail!("Uplink task stopped: {:?}", v);
         }
     }
-    Ok(())
 }
