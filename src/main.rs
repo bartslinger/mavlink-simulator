@@ -1,7 +1,10 @@
+use axum::routing::{any, get};
 use mavlink::MavHeader;
+use std::net::SocketAddr;
 use std::sync::Arc;
 
 mod fixed_wing;
+mod handlers;
 mod simulator;
 
 #[tokio::main]
@@ -58,6 +61,20 @@ async fn main() -> Result<(), anyhow::Error> {
         }
     };
 
+    // Fine as long as this is not publicly exposed
+    let cors_layer = tower_http::cors::CorsLayer::new()
+        .allow_origin(tower_http::cors::Any) // Allow any origin
+        .allow_methods(tower_http::cors::Any) // Allow any HTTP method
+        .allow_headers(tower_http::cors::Any); // Allow any headers
+
+    let app = axum::Router::new()
+        .route("/", get(|| async { "Hello, world!" }))
+        .route("/ws", any(handlers::websocket::websocket_handler))
+        .layer(cors_layer)
+        .into_make_service_with_connect_info::<SocketAddr>();
+
+    let listener = tokio::net::TcpListener::bind("[::]:3000").await?;
+
     tokio::select! {
         v = simulator.run(downlink_tx, uplink_rx) => {
             anyhow::bail!("Simulator stopped: {:?}", v);
@@ -67,6 +84,9 @@ async fn main() -> Result<(), anyhow::Error> {
         }
         v = uplink_task => {
             anyhow::bail!("Uplink task stopped: {:?}", v);
+        }
+        v = axum::serve(listener, app) => {
+            anyhow::bail!("HTTP server stopped: {:?}", v);
         }
     }
 }
