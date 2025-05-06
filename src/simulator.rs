@@ -18,7 +18,7 @@ impl Simulator {
         let mut fixed_wing = FixedWing::new(
             body,
             nalgebra::Vector3::new(53.25230577819744, 5.06370256065469, 100.0),
-            315.0,
+            45.0,
         );
         let mut physics_interval = tokio::time::interval(tokio::time::Duration::from_millis(5));
         let mut broadcast_1hz_interval = tokio::time::interval(tokio::time::Duration::from_secs(2));

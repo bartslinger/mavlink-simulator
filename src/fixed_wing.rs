@@ -31,7 +31,7 @@ impl<
         // calculate quaternion from initial roll, pitch, yaw rotation
         let half_roll: f64 = 0.0 * 0.5;
         let half_pitch: f64 = 0.0 * 0.5;
-        let half_yaw: f64 = 315.0_f64.to_radians() * 0.5;
+        let half_yaw: f64 = heading_rad * 0.5;
 
         let cos_roll = half_roll.cos();
         let sin_roll = half_roll.sin();
@@ -47,7 +47,7 @@ impl<
         let q3 = cos_roll * cos_pitch * sin_yaw - sin_roll * sin_pitch * cos_yaw;
 
         let state = nalgebra::SVector::<f64, 13>::from([
-            12.0, 0.0, 0.0, 0.0, 0.0, 0.0, q0, q1, q2, q3, 0.0, 0.0, -100.0,
+            12.0, 0.0, 0.0, 0.0, 0.0, 0.0, q0, q1, q2, q3, 0.0, 0.0, 0.0,
         ]);
 
         Self {

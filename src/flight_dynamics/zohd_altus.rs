@@ -213,10 +213,10 @@ impl DynamicsModel<INPUTS, ADDITIONAL_OUTPUTS> for ZohdAltusModel {
         let m_cg_b = ma_cg_b + me_cg_b;
 
         (
-            // nalgebra::Vector3::zeros(),
-            // nalgebra::Vector3::zeros(),
-            f_b,
-            m_cg_b,
+            nalgebra::Vector3::zeros(),
+            nalgebra::Vector3::zeros(),
+            // f_b,
+            // m_cg_b,
             nalgebra::SVector::<f64, ADDITIONAL_OUTPUTS>::new(va, alpha),
         )
     }
