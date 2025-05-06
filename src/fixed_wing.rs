@@ -1,12 +1,26 @@
-pub struct FixedWing {
+use crate::flight_dynamics::{DynamicsModel, RigidBody, State};
+
+pub struct FixedWing<
+    M: DynamicsModel<INPUTS, ADDITIONAL_OUTPUTS>,
+    const INPUTS: usize,
+    const ADDITIONAL_OUTPUTS: usize,
+> {
+    pub body: RigidBody<M, INPUTS, ADDITIONAL_OUTPUTS>,
+    pub state: State,
     pub origin: nalgebra::Vector3<f64>,
-    pub local_position: nalgebra::Vector3<f64>,
-    // pub local_velocity: nalgebra::Vector3<f64>,
-    pub attitude: nalgebra::Vector3<f64>,
 }
 
-impl FixedWing {
-    pub fn new(origin: nalgebra::Vector3<f64>, heading_deg: f64) -> Self {
+impl<
+        M: DynamicsModel<INPUTS, ADDITIONAL_OUTPUTS>,
+        const INPUTS: usize,
+        const ADDITIONAL_OUTPUTS: usize,
+    > FixedWing<M, INPUTS, ADDITIONAL_OUTPUTS>
+{
+    pub fn new(
+        body: RigidBody<M, INPUTS, ADDITIONAL_OUTPUTS>,
+        origin: nalgebra::Vector3<f64>,
+        heading_deg: f64,
+    ) -> Self {
         // moving forward with 12 m/s
         let velocity = nalgebra::Vector3::new(12.0, 0.0, 0.0);
         let heading_rad = heading_deg.to_radians();
@@ -14,32 +28,62 @@ impl FixedWing {
             nalgebra::Rotation3::from_axis_angle(&nalgebra::Vector3::z_axis(), heading_rad);
         let local_velocity: nalgebra::Vector3<f64> = rotation * velocity;
 
-        tracing::info!("{:?}", local_velocity);
+        // calculate quaternion from initial roll, pitch, yaw rotation
+        let half_roll: f64 = 0.0 * 0.5;
+        let half_pitch: f64 = 0.0 * 0.5;
+        let half_yaw: f64 = heading_rad * 0.5;
+
+        let cos_roll = half_roll.cos();
+        let sin_roll = half_roll.sin();
+        let cos_pitch = half_pitch.cos();
+        let sin_pitch = half_pitch.sin();
+        let cos_yaw = half_yaw.cos();
+        let sin_yaw = half_yaw.sin();
+
+        // Calculate each quaternion component
+        let q0 = cos_roll * cos_pitch * cos_yaw + sin_roll * sin_pitch * sin_yaw;
+        let q1 = sin_roll * cos_pitch * cos_yaw - cos_roll * sin_pitch * sin_yaw;
+        let q2 = cos_roll * sin_pitch * cos_yaw + sin_roll * cos_pitch * sin_yaw;
+        let q3 = cos_roll * cos_pitch * sin_yaw - sin_roll * sin_pitch * cos_yaw;
+
+        let state = nalgebra::SVector::<f64, 13>::from([
+            12.0, 0.0, 0.0, 0.0, 0.0, 0.0, q0, q1, q2, q3, 0.0, 0.0, 0.0,
+        ]);
 
         Self {
+            body,
+            state,
             origin,
-            local_position: nalgebra::Vector3::new(0.0, 0.0, 0.0),
-            // local_velocity,
-            attitude: nalgebra::Vector3::new(0.0, 0.0, heading_rad),
         }
     }
 
     pub fn simulate(&mut self, dt: f64) {
-        // Simulate the fixed wing dynamics here
-        // For now use super simple simulation dynamics. Just move forward in the direction of
-        // attitude.
+        let mut control_input = nalgebra::SVector::<f64, INPUTS>::zeros();
+        control_input[3] = 0.2;
+        control_input[4] = 0.2;
+        let (new_state, forces, moments, outputs) = self.body.step(&self.state, &control_input, dt);
+        self.state = new_state;
+    }
 
-        // Update local_velocity to be in the direction of attitude
-        let rotation = nalgebra::Rotation3::from_euler_angles(
-            self.attitude.x,
-            self.attitude.y,
-            self.attitude.z,
-        );
-        let velocity = nalgebra::Vector3::new(12.0, 0.0, 0.0);
-        let local_velocity: nalgebra::Vector3<f64> = rotation * velocity;
+    pub fn local_position(&self) -> nalgebra::Vector3<f64> {
+        nalgebra::Vector3::new(self.state[10], self.state[11], self.state[12])
+    }
 
-        // Update local_position based on local_velocity
-        self.local_position += local_velocity * dt;
+    pub fn rpy_deg(&self) -> nalgebra::Vector3<f64> {
+        let q =
+            nalgebra::Quaternion::new(self.state[6], self.state[7], self.state[8], self.state[9]);
+        let (roll, pitch, yaw) = nalgebra::UnitQuaternion::from_quaternion(q).euler_angles();
+        let roll_deg = roll.to_degrees();
+        let pitch_deg = pitch.to_degrees();
+        // yaw between 0 and 360
+        let yaw_deg = yaw.to_degrees();
+        let yaw_deg = if yaw_deg < 0.0 {
+            360.0 + yaw_deg
+        } else {
+            yaw_deg
+        };
+
+        nalgebra::Vector3::new(roll_deg, pitch_deg, yaw_deg)
     }
 }
 
