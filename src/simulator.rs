@@ -18,9 +18,9 @@ impl Simulator {
         let mut fixed_wing = FixedWing::new(
             body,
             nalgebra::Vector3::new(53.25230577819744, 5.06370256065469, 100.0),
-            0.0,
+            315.0,
         );
-        let mut physics_interval = tokio::time::interval(tokio::time::Duration::from_millis(100));
+        let mut physics_interval = tokio::time::interval(tokio::time::Duration::from_millis(5));
         let mut broadcast_1hz_interval = tokio::time::interval(tokio::time::Duration::from_secs(2));
         let mut broadcast_5hz_interval =
             tokio::time::interval(tokio::time::Duration::from_millis(200));
@@ -41,7 +41,7 @@ impl Simulator {
             };
             match trigger {
                 Trigger::PhysicsInterval => {
-                    fixed_wing.simulate(0.1);
+                    fixed_wing.simulate(physics_interval.period().as_secs_f64());
                 }
                 Trigger::Broadcast1HzInterval => {
                     let message = mavlink::ardupilotmega::MavMessage::HEARTBEAT(
@@ -61,18 +61,19 @@ impl Simulator {
                 }
                 Trigger::Broadcast5HzInterval => {
                     let global_position =
-                        global_position(&fixed_wing.local_position, &fixed_wing.origin);
+                        global_position(&fixed_wing.local_position(), &fixed_wing.origin);
+                    let rpy_deg = fixed_wing.rpy_deg();
                     let message = mavlink::ardupilotmega::MavMessage::GLOBAL_POSITION_INT(
                         mavlink::ardupilotmega::GLOBAL_POSITION_INT_DATA {
                             time_boot_ms: 0,
                             lat: (global_position.x * 10_000_000.0).round() as i32,
                             lon: (global_position.y * 10_000_000.0).round() as i32,
-                            alt: (global_position.z * 1000.0) as i32,
-                            relative_alt: 0,
+                            alt: (global_position.z * 1000.0).round() as i32,
+                            relative_alt: (global_position.z * 1000.0).round() as i32,
                             vx: 120,
                             vy: 0,
                             vz: 0,
-                            hdg: 0,
+                            hdg: (rpy_deg[2] * 100.0) as u16,
                         },
                     );
                     if let Err(e) = downlink_tx.try_send(message) {
