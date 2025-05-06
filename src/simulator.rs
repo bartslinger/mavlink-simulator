@@ -63,6 +63,11 @@ impl Simulator {
                     let global_position =
                         global_position(&fixed_wing.local_position(), &fixed_wing.origin);
                     let rpy_deg = fixed_wing.rpy_deg();
+                    tracing::info!(
+                        "Pitch: {:.2}\t Speed: {:.2}",
+                        rpy_deg[1],
+                        fixed_wing.state[0]
+                    );
                     let message = mavlink::ardupilotmega::MavMessage::GLOBAL_POSITION_INT(
                         mavlink::ardupilotmega::GLOBAL_POSITION_INT_DATA {
                             time_boot_ms: 0,

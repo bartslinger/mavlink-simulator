@@ -1,3 +1,4 @@
+#![allow(non_snake_case)]
 use super::rigid_body::{DynamicsModel, Forces, Moments, State};
 use std::f64::consts::PI;
 
@@ -35,6 +36,10 @@ const G: f64 = 9.80665; // Gravitational acceleration (m/s^2)
 const CL0: f64 = 0.22816; // Lift coefficient at zero angle of attack
 const CLA: f64 = 4.93732; // Lift curve slope (rad^-1)
 
+const CM0: f64 = -0.00675; // Moment coefficient at zero angle of attack
+const CMA: f64 = -0.78035; // Moment curve slope (rad^-1)
+const CMQ: f64 = -10.78603; // Moment coefficient at pitch rate (rad^-1)
+
 pub struct ZohdAltusModel {}
 
 impl DynamicsModel<INPUTS, ADDITIONAL_OUTPUTS> for ZohdAltusModel {
@@ -65,7 +70,7 @@ impl DynamicsModel<INPUTS, ADDITIONAL_OUTPUTS> for ZohdAltusModel {
         let (p, q, r) = (state[3], state[4], state[5]);
 
         // Define vectors
-        let v_b = nalgebra::Vector3::new(u, v, w);
+        let V_b = nalgebra::Vector3::new(u, v, w);
         let wbe_b = nalgebra::Vector3::new(p, q, r);
 
         let d_a = control_input[0]; // d_A (aileron)
@@ -76,26 +81,31 @@ impl DynamicsModel<INPUTS, ADDITIONAL_OUTPUTS> for ZohdAltusModel {
 
         // ---------------INTERMEDIATE VARIABLES------------------------
         // Calculate airspeed
-        let va = v_b.norm();
+        let V_a = V_b.norm();
 
         // Calculate alpha and beta
         let alpha = w.atan2(u);
-        let beta = (v / va).asin();
+        let beta = (v / V_a).asin();
 
         // Calculate dynamic pressure
-        let dynamic_pressure = 0.5 * RHO * va.powi(2);
+        let dynamic_pressure = 0.5 * RHO * V_a.powi(2);
 
         // Calculate lift in the stability frame (sf)
-        let cl_wing = CL0 + CLA * alpha;
-        let lift_wing_sf = cl_wing * dynamic_pressure * S;
+        let CL = CL0 + CLA * alpha;
+        let L_sf = CL * dynamic_pressure * S;
 
         // Ignoring lift by the tail
 
         // Lift in body frame (bf)
-        let lift_wing_bf =
-            nalgebra::Vector3::new(lift_wing_sf * alpha.sin(), 0.0, -lift_wing_sf * alpha.cos());
+        let L_bf = nalgebra::Vector3::new(L_sf * alpha.sin(), 0.0, -L_sf * alpha.cos());
 
-        // tracing::info!("lift_wing_bf: {:?}", lift_wing_bf);
+        let q_hat = q * CBAR / (2.0 * V_a);
+        let Cm = CM0 + CMA * alpha + CMQ * q_hat;
+        let M_sf = Cm * dynamic_pressure * S * CBAR;
+        let M_bf = M_sf;
+
+        let damping = CMQ * q;
+        // tracing::info!("Damping: {:.5} {:.5}", q.to_degrees(), damping);
 
         // Calculate the CL_wb
         // let cl_wb = if alpha <= ALPHA_SWITCH {
@@ -208,9 +218,9 @@ impl DynamicsModel<INPUTS, ADDITIONAL_OUTPUTS> for ZohdAltusModel {
         //
         // let me_cg_b = me_cg1_b;
 
-        // let g_ned = nalgebra::Vector3::new(0.0, 0.0, G);
-        // let g_bf = rotation_matrix.transpose() * g_ned;
-        // let gravity_force_bf = self.mass() * g_bf;
+        let g_ned = nalgebra::Vector3::new(0.0, 0.0, G);
+        let g_bf = rotation_matrix.transpose() * g_ned;
+        let Fg_bf = self.mass() * g_bf;
 
         // tracing::info!(
         //     "gravity: {}\tlift: {}\talpha: {}",
@@ -221,13 +231,15 @@ impl DynamicsModel<INPUTS, ADDITIONAL_OUTPUTS> for ZohdAltusModel {
 
         // let f_b = fg_b + fe_b + fa_b;
         // let m_cg_b = ma_cg_b + me_cg_b;
+        let F_bf = Fg_bf + L_bf;
+        let M_bf = nalgebra::Vector3::new(0.0, M_bf, 0.0);
 
         (
-            nalgebra::Vector3::zeros(),
-            nalgebra::Vector3::zeros(),
-            // f_b,
-            // m_cg_b,
-            nalgebra::SVector::<f64, ADDITIONAL_OUTPUTS>::new(va, alpha),
+            // nalgebra::Vector3::zeros(),
+            // nalgebra::Vector3::zeros(),
+            F_bf,
+            M_bf,
+            nalgebra::SVector::<f64, ADDITIONAL_OUTPUTS>::new(V_a, alpha),
         )
     }
 }
