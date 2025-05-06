@@ -1,4 +1,6 @@
 use crate::fixed_wing::{global_position, FixedWing};
+use crate::flight_dynamics::zohd_altus::ZohdAltusModel;
+use crate::flight_dynamics::RigidBody;
 
 pub struct Simulator {}
 
@@ -12,7 +14,12 @@ impl Simulator {
         downlink_tx: tokio::sync::mpsc::Sender<mavlink::ardupilotmega::MavMessage>,
         mut uplink_rx: tokio::sync::mpsc::Receiver<mavlink::ardupilotmega::MavMessage>,
     ) -> ! {
-        let mut fixed_wing = FixedWing::new(nalgebra::Vector3::new(52.0, 4.5, 100.0), 0.0);
+        let body = RigidBody::new(ZohdAltusModel {});
+        let mut fixed_wing = FixedWing::new(
+            body,
+            nalgebra::Vector3::new(53.25230577819744, 5.06370256065469, 100.0),
+            0.0,
+        );
         let mut physics_interval = tokio::time::interval(tokio::time::Duration::from_millis(100));
         let mut broadcast_1hz_interval = tokio::time::interval(tokio::time::Duration::from_secs(2));
         let mut broadcast_5hz_interval =

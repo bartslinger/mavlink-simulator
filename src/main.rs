@@ -3,6 +3,7 @@ use axum::routing::{any, get};
 use std::net::SocketAddr;
 
 mod fixed_wing;
+mod flight_dynamics;
 mod handlers;
 mod simulator;
 
