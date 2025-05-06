@@ -21,17 +21,11 @@ impl<
         origin: nalgebra::Vector3<f64>,
         heading_deg: f64,
     ) -> Self {
-        // moving forward with 12 m/s
-        let velocity = nalgebra::Vector3::new(12.0, 0.0, 0.0);
-        let heading_rad = heading_deg.to_radians();
-        let rotation =
-            nalgebra::Rotation3::from_axis_angle(&nalgebra::Vector3::z_axis(), heading_rad);
-        let local_velocity: nalgebra::Vector3<f64> = rotation * velocity;
-
+        let pitch = 1.0_f64.to_radians();
         // calculate quaternion from initial roll, pitch, yaw rotation
         let half_roll: f64 = 0.0 * 0.5;
-        let half_pitch: f64 = 0.0 * 0.5;
-        let half_yaw: f64 = heading_rad * 0.5;
+        let half_pitch: f64 = pitch * 0.5;
+        let half_yaw: f64 = heading_deg.to_radians() * 0.5;
 
         let cos_roll = half_roll.cos();
         let sin_roll = half_roll.sin();
@@ -46,8 +40,14 @@ impl<
         let q2 = cos_roll * sin_pitch * cos_yaw + sin_roll * cos_pitch * sin_yaw;
         let q3 = cos_roll * cos_pitch * sin_yaw - sin_roll * sin_pitch * cos_yaw;
 
+        // Split velocity components u,w
+        // flying straight and level
+        let speed = 18.423;
+        let u = speed * (pitch).cos();
+        let w = speed * (pitch).sin();
+
         let state = nalgebra::SVector::<f64, 13>::from([
-            12.0, 0.0, 0.0, 0.0, 0.0, 0.0, q0, q1, q2, q3, 0.0, 0.0, 0.0,
+            u, 0.0, w, 0.0, 0.0, 0.0, q0, q1, q2, q3, 0.0, 0.0, 0.0,
         ]);
 
         Self {
