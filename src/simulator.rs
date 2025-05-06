@@ -11,7 +11,7 @@ impl Simulator {
         &self,
         downlink_tx: tokio::sync::mpsc::Sender<mavlink::ardupilotmega::MavMessage>,
         mut uplink_rx: tokio::sync::mpsc::Receiver<mavlink::ardupilotmega::MavMessage>,
-    ) -> Result<(), anyhow::Error> {
+    ) -> ! {
         let mut fixed_wing = FixedWing::new(nalgebra::Vector3::new(52.0, 4.5, 100.0), 0.0);
         let mut physics_interval = tokio::time::interval(tokio::time::Duration::from_millis(100));
         let mut broadcast_1hz_interval = tokio::time::interval(tokio::time::Duration::from_secs(2));
@@ -48,9 +48,8 @@ impl Simulator {
                             mavlink_version: 0x3,
                         },
                     );
-                    let send_result = downlink_tx.try_send(message);
-                    if send_result.is_err() {
-                        anyhow::bail!("Downlink channel closed");
+                    if let Err(e) = downlink_tx.try_send(message) {
+                        tracing::error!("Downlink channel error: {:?}", e);
                     }
                 }
                 Trigger::Broadcast5HzInterval => {
@@ -69,9 +68,8 @@ impl Simulator {
                             hdg: 0,
                         },
                     );
-                    let send_result = downlink_tx.try_send(message);
-                    if send_result.is_err() {
-                        anyhow::bail!("Downlink channel closed");
+                    if let Err(e) = downlink_tx.try_send(message) {
+                        tracing::error!("Downlink channel error: {:?}", e);
                     }
                 }
                 Trigger::Uplink(v) => {
@@ -79,7 +77,6 @@ impl Simulator {
                         tracing::info!("Uplink: {:?}", v);
                     } else {
                         tracing::info!("Uplink channel closed");
-                        anyhow::bail!("Uplink channel closed");
                     }
                 }
             }
