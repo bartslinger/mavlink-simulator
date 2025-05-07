@@ -1,3 +1,4 @@
+use crate::controller::{ControlSetpoint, Controller};
 use crate::fixed_wing::{global_position, ControlInput, FixedWing};
 use crate::flight_dynamics::zohd_altus::ZohdAltusModel;
 use crate::flight_dynamics::RigidBody;
@@ -15,13 +16,15 @@ impl Simulator {
         mut uplink_rx: tokio::sync::mpsc::Receiver<mavlink::ardupilotmega::MavMessage>,
     ) -> ! {
         let body = RigidBody::new(ZohdAltusModel {});
+        let initial_altitude: f64 = 100.0;
         let mut fixed_wing = FixedWing::new(
             body,
-            nalgebra::Vector3::new(53.25230577819744, 5.06370256065469, 100.0),
+            nalgebra::Vector3::new(53.25230577819744, 5.06370256065469, initial_altitude),
             18.423,
             1.0,
             45.0,
         );
+        let mut controller = Controller::new();
         let mut physics_interval = tokio::time::interval(tokio::time::Duration::from_millis(5));
         let mut broadcast_1hz_interval = tokio::time::interval(tokio::time::Duration::from_secs(2));
         let mut broadcast_5hz_interval =
@@ -43,15 +46,16 @@ impl Simulator {
             };
             match trigger {
                 Trigger::PhysicsInterval => {
-                    fixed_wing.simulate(
-                        physics_interval.period().as_secs_f64(),
-                        ControlInput {
-                            roll: 0.0,
-                            pitch: 0.05,
-                            yaw: 0.0,
-                            throttle: 0.15,
+                    let control_input = controller.calculate_control_input(
+                        &fixed_wing.state,
+                        ControlSetpoint {
+                            altitude: (200.0 - initial_altitude),
+                            airspeed: 18.423,
                         },
+                        physics_interval.period().as_secs_f64(),
                     );
+
+                    fixed_wing.simulate(physics_interval.period().as_secs_f64(), control_input);
                 }
                 Trigger::Broadcast1HzInterval => {
                     let message = mavlink::ardupilotmega::MavMessage::HEARTBEAT(
@@ -76,7 +80,7 @@ impl Simulator {
                     tracing::info!(
                         "Pitch: {:.2}\t Speed: {:.2}",
                         rpy_deg[1],
-                        fixed_wing.state[0]
+                        fixed_wing.state[0],
                     );
                     let message = mavlink::ardupilotmega::MavMessage::GLOBAL_POSITION_INT(
                         mavlink::ardupilotmega::GLOBAL_POSITION_INT_DATA {

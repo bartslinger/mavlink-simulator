@@ -2,6 +2,7 @@ use anyhow::Context;
 use axum::routing::{any, get};
 use std::net::SocketAddr;
 
+mod controller;
 mod fixed_wing;
 mod flight_dynamics;
 mod handlers;
