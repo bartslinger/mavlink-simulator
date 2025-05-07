@@ -60,8 +60,8 @@ impl<
 
     pub fn simulate(&mut self, dt: f64) {
         let mut control_input = nalgebra::SVector::<f64, INPUTS>::zeros();
-        control_input[3] = 0.2;
-        control_input[4] = 0.2;
+        control_input[3] = 0.15;
+        control_input[4] = 0.15;
         let (new_state, forces, moments, outputs) = self.body.step(&self.state, &control_input, dt);
         self.state = new_state;
     }

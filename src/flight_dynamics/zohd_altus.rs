@@ -6,6 +6,10 @@ const INPUTS: usize = 5;
 const ADDITIONAL_OUTPUTS: usize = 2;
 
 // Constants
+const RHO: f64 = 1.225; // Air density (kg/m^3)
+const G: f64 = 9.80665; // Gravitational acceleration (m/s^2)
+
+// Airplane geometry
 const CBAR: f64 = 0.154; // Mean Aerodynamic Chord (m)
 
 const B: f64 = 0.980; // Wing span (m)
@@ -14,6 +18,8 @@ const S: f64 = 0.147; // Wing planform area (m^2)
 
 const AR: f64 = 6.524; // Aspect ratio
 const E: f64 = 0.9; // Oswald efficiency factor
+
+const U_MAX: f64 = 0.625 * G; // Maximum thrust provided by one engine (N)
 
 // const S_TAIL: f64 = 0.21 * 0.06; // Tail planform area (m^2)
 // const X_CG: f64 = -0.027; // x position of CoG wrt leading edge (m)
@@ -32,9 +38,6 @@ const E: f64 = 0.9; // Oswald efficiency factor
 // const Y_APT1: f64 = 0.0; // y position of engine force wrt leading edge (m)
 // const Z_APT1: f64 = 0.015; // z position of engine force wrt leading edge (m)
 //
-// // Other constants
-const RHO: f64 = 1.225; // Air density (kg/m^3)
-const G: f64 = 9.80665; // Gravitational acceleration (m/s^2)
 
 const CL0: f64 = 0.22816; // Lift coefficient at zero angle of attack
 const CLA: f64 = 4.93732; // Lift curve slope (rad^-1)
@@ -111,6 +114,9 @@ impl DynamicsModel<INPUTS, ADDITIONAL_OUTPUTS> for ZohdAltusModel {
 
         // Drag in body frame (bf)
         let D_bf = nalgebra::Vector3::new(-D_sf * alpha.cos(), 0.0, -D_sf * alpha.sin());
+
+        // Thrust in body frame (bf)
+        let T_bf = nalgebra::Vector3::new((d_th1 + d_th2) * U_MAX, 0.0, 0.0);
 
         let q_hat = q * CBAR / (2.0 * V_a);
         let Cm = CM0 + CMA * alpha + CMQ * q_hat;
@@ -244,7 +250,7 @@ impl DynamicsModel<INPUTS, ADDITIONAL_OUTPUTS> for ZohdAltusModel {
 
         // let f_b = fg_b + fe_b + fa_b;
         // let m_cg_b = ma_cg_b + me_cg_b;
-        let F_bf = Fg_bf + L_bf + D_bf;
+        let F_bf = Fg_bf + L_bf + D_bf + T_bf;
         let M_bf = nalgebra::Vector3::new(0.0, M_bf, 0.0);
 
         (
