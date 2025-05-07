@@ -18,6 +18,8 @@ impl Simulator {
         let mut fixed_wing = FixedWing::new(
             body,
             nalgebra::Vector3::new(53.25230577819744, 5.06370256065469, 100.0),
+            18.423,
+            1.0,
             45.0,
         );
         let mut physics_interval = tokio::time::interval(tokio::time::Duration::from_millis(5));

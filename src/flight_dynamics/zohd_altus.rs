@@ -12,6 +12,9 @@ const B: f64 = 0.980; // Wing span (m)
 
 const S: f64 = 0.147; // Wing planform area (m^2)
 
+const AR: f64 = 6.524; // Aspect ratio
+const E: f64 = 0.9; // Oswald efficiency factor
+
 // const S_TAIL: f64 = 0.21 * 0.06; // Tail planform area (m^2)
 // const X_CG: f64 = -0.027; // x position of CoG wrt leading edge (m)
 // const Y_CG: f64 = 0.0; // y position of CoG wrt leading edge (m)
@@ -39,6 +42,8 @@ const CLA: f64 = 4.93732; // Lift curve slope (rad^-1)
 const CM0: f64 = -0.00675; // Moment coefficient at zero angle of attack
 const CMA: f64 = -0.78035; // Moment curve slope (rad^-1)
 const CMQ: f64 = -10.78603; // Moment coefficient at pitch rate (rad^-1)
+
+const CD0: f64 = 0.025; // Zero-lift drag coefficient
 
 pub struct ZohdAltusModel {}
 
@@ -96,8 +101,16 @@ impl DynamicsModel<INPUTS, ADDITIONAL_OUTPUTS> for ZohdAltusModel {
 
         // Ignoring lift by the tail
 
+        // Induced drag
+        let CDi = CL.powi(2) / (PI * AR * E);
+
+        let D_sf = (CD0 + CDi) * dynamic_pressure * S;
+
         // Lift in body frame (bf)
         let L_bf = nalgebra::Vector3::new(L_sf * alpha.sin(), 0.0, -L_sf * alpha.cos());
+
+        // Drag in body frame (bf)
+        let D_bf = nalgebra::Vector3::new(-D_sf * alpha.cos(), 0.0, -D_sf * alpha.sin());
 
         let q_hat = q * CBAR / (2.0 * V_a);
         let Cm = CM0 + CMA * alpha + CMQ * q_hat;
@@ -231,7 +244,7 @@ impl DynamicsModel<INPUTS, ADDITIONAL_OUTPUTS> for ZohdAltusModel {
 
         // let f_b = fg_b + fe_b + fa_b;
         // let m_cg_b = ma_cg_b + me_cg_b;
-        let F_bf = Fg_bf + L_bf;
+        let F_bf = Fg_bf + L_bf + D_bf;
         let M_bf = nalgebra::Vector3::new(0.0, M_bf, 0.0);
 
         (

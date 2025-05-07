@@ -19,9 +19,11 @@ impl<
     pub fn new(
         body: RigidBody<M, INPUTS, ADDITIONAL_OUTPUTS>,
         origin: nalgebra::Vector3<f64>,
+        speed: f64,
+        pitch_deg: f64,
         heading_deg: f64,
     ) -> Self {
-        let pitch = 1.0_f64.to_radians();
+        let pitch = pitch_deg.to_radians();
         // calculate quaternion from initial roll, pitch, yaw rotation
         let half_roll: f64 = 0.0 * 0.5;
         let half_pitch: f64 = pitch * 0.5;
@@ -42,7 +44,6 @@ impl<
 
         // Split velocity components u,w
         // flying straight and level
-        let speed = 18.423;
         let u = speed * (pitch).cos();
         let w = speed * (pitch).sin();
 
