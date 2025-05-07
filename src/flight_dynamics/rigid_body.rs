@@ -15,7 +15,6 @@
 //     pd: f64,
 // }
 
-use std::f64::consts::PI;
 use std::fmt::Display;
 
 pub type State = nalgebra::SVector<f64, 13>;
@@ -38,13 +37,6 @@ impl Display for InitialCondition {
             self.velocity, self.angular_velocity, self.rotation, self.position
         )
     }
-}
-
-#[derive(Default)]
-pub struct SimOutput {
-    pub(crate) time: Vec<f64>,
-    pub(crate) states: Vec<State>,
-    pub(crate) control_inputs: Vec<Vec<f64>>,
 }
 
 pub type Forces = nalgebra::Vector3<f64>;
@@ -82,6 +74,8 @@ where
         let mass = dynamics_model.mass();
         let inertia = dynamics_model.inertia();
         let inertia_inverse = inertia.try_inverse().unwrap();
+        tracing::debug!("{:?}", dynamics_model.input_names());
+        tracing::debug!("{:?}", dynamics_model.output_names());
 
         Self {
             mass,
@@ -167,117 +161,6 @@ where
             self.runge_kutta_propagation(state, control_input, dt);
         let state = normalize_quaternion(state);
         (state, forces, moments, additional_outputs)
-    }
-
-    pub fn simulate<F>(
-        &self,
-        duration: std::time::Duration,
-        dt: std::time::Duration,
-        initial: InitialCondition,
-        mut control_input: F,
-        output_file_name: Option<&str>,
-    ) -> SimOutput
-    where
-        F: FnMut(u128, &State, f64) -> nalgebra::SVector<f64, I>,
-    {
-        // calculate quaternion from initial roll, pitch, yaw rotation
-
-        let half_roll = initial.rotation[0] * 0.5;
-        let half_pitch = initial.rotation[1] * 0.5;
-        let half_yaw = initial.rotation[2] * 0.5;
-
-        let cos_roll = half_roll.cos();
-        let sin_roll = half_roll.sin();
-        let cos_pitch = half_pitch.cos();
-        let sin_pitch = half_pitch.sin();
-        let cos_yaw = half_yaw.cos();
-        let sin_yaw = half_yaw.sin();
-
-        // Calculate each quaternion component
-        let q0 = cos_roll * cos_pitch * cos_yaw + sin_roll * sin_pitch * sin_yaw;
-        let q1 = sin_roll * cos_pitch * cos_yaw - cos_roll * sin_pitch * sin_yaw;
-        let q2 = cos_roll * sin_pitch * cos_yaw + sin_roll * cos_pitch * sin_yaw;
-        let q3 = cos_roll * cos_pitch * sin_yaw - sin_roll * sin_pitch * cos_yaw;
-
-        let initial_state = nalgebra::SVector::<f64, 13>::from([
-            initial.velocity[0],
-            initial.velocity[1],
-            initial.velocity[2],
-            initial.angular_velocity[0],
-            initial.angular_velocity[1],
-            initial.angular_velocity[2],
-            q0,
-            q1,
-            q2,
-            q3,
-            initial.position[0],
-            initial.position[1],
-            initial.position[2],
-        ]);
-
-        let dt_secs = dt.as_secs_f64();
-        let steps = duration.as_millis() / dt.as_millis();
-        let mut state = initial_state;
-
-        let mut sim_output = SimOutput::default();
-        let mut u = control_input(0, &state, dt_secs);
-        let (_state_derivative, mut forces, mut moments, mut additional_outputs) =
-            self.compute_state_derivative(&state, &u);
-
-        for i in 0..=steps {
-            let t = i * dt.as_millis();
-            sim_output.time.push(t as f64 * 0.001);
-            sim_output.states.push(state);
-            let u_vec = u.iter().cloned().collect::<Vec<f64>>();
-            sim_output.control_inputs.push(u_vec);
-            u = control_input(t, &state, dt_secs);
-            (state, forces, moments, additional_outputs) = self.step(&state, &u, dt_secs);
-        }
-        sim_output
-    }
-
-    pub fn trim<F>(
-        &self,
-        initial_velocity: f64,
-        trim_controller: &mut F,
-    ) -> Option<(InitialCondition, Vec<f64>)>
-    where
-        F: FnMut(u128, &State, f64) -> nalgebra::SVector<f64, I>,
-    {
-        // Use a lazy PID controller to find trim-point
-        let sim_output = self.simulate(
-            std::time::Duration::from_secs(50),
-            std::time::Duration::from_millis(10),
-            InitialCondition {
-                velocity: nalgebra::Vector3::new(initial_velocity, 0.0, 0.0),
-                angular_velocity: nalgebra::Vector3::new(0.0 * PI / 180.0, 0.0, 0.0),
-                rotation: nalgebra::Vector3::new(0.0, 0.0, 0.0),
-                position: nalgebra::Vector3::new(0.0, 0.0, 0.0),
-            },
-            trim_controller,
-            None,
-        );
-        let last_output = sim_output.states.last().expect("No output");
-        let quaternion = nalgebra::UnitQuaternion::from_quaternion(nalgebra::Quaternion::new(
-            last_output[6],
-            last_output[7],
-            last_output[8],
-            last_output[9],
-        ));
-        let euler = quaternion.euler_angles();
-        let initial_condition = InitialCondition {
-            velocity: nalgebra::Vector3::new(last_output[0], last_output[1], last_output[2]),
-            angular_velocity: nalgebra::Vector3::new(0.0, 0.0, 0.0),
-            rotation: nalgebra::Vector3::new(euler.0, euler.1, euler.2),
-            position: nalgebra::Vector3::new(0.0, 0.0, 0.0),
-        };
-
-        let last_u = sim_output
-            .control_inputs
-            .last()
-            .cloned()
-            .expect("No control input");
-        Some((initial_condition, last_u))
     }
 }
 

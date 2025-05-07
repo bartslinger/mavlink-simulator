@@ -10,6 +10,13 @@ pub struct FixedWing<
     pub origin: nalgebra::Vector3<f64>,
 }
 
+pub struct ControlInput {
+    pub roll: f64,
+    pub pitch: f64,
+    pub yaw: f64,
+    pub throttle: f64,
+}
+
 impl<
         M: DynamicsModel<INPUTS, ADDITIONAL_OUTPUTS>,
         const INPUTS: usize,
@@ -58,11 +65,19 @@ impl<
         }
     }
 
-    pub fn simulate(&mut self, dt: f64) {
+    pub fn simulate(&mut self, dt: f64, input: ControlInput) {
         let mut control_input = nalgebra::SVector::<f64, INPUTS>::zeros();
-        control_input[3] = 0.15;
-        control_input[4] = 0.15;
-        let (new_state, forces, moments, outputs) = self.body.step(&self.state, &control_input, dt);
+        // max 20 degrees roll deflection
+        control_input[0] = (input.roll * 20.0).to_radians();
+        // max 20 degrees pitch deflection
+        control_input[1] = (-input.pitch * 20.0).to_radians();
+        // Ignore yaw command
+        control_input[2] = 0.0 * input.yaw;
+        // max 100% throttle
+        control_input[3] = input.throttle;
+        control_input[4] = input.throttle;
+        let (new_state, _forces, _moments, _outputs) =
+            self.body.step(&self.state, &control_input, dt);
         self.state = new_state;
     }
 

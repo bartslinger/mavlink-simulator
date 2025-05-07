@@ -1,4 +1,4 @@
-use crate::fixed_wing::{global_position, FixedWing};
+use crate::fixed_wing::{global_position, ControlInput, FixedWing};
 use crate::flight_dynamics::zohd_altus::ZohdAltusModel;
 use crate::flight_dynamics::RigidBody;
 
@@ -43,7 +43,15 @@ impl Simulator {
             };
             match trigger {
                 Trigger::PhysicsInterval => {
-                    fixed_wing.simulate(physics_interval.period().as_secs_f64());
+                    fixed_wing.simulate(
+                        physics_interval.period().as_secs_f64(),
+                        ControlInput {
+                            roll: 0.0,
+                            pitch: 0.05,
+                            yaw: 0.0,
+                            throttle: 0.15,
+                        },
+                    );
                 }
                 Trigger::Broadcast1HzInterval => {
                     let message = mavlink::ardupilotmega::MavMessage::HEARTBEAT(
