@@ -28,7 +28,11 @@ impl Controller {
         setpoint: ControlSetpoint,
         dt: f64,
     ) -> ControlInput {
-        let (_roll, pitch, _yaw) = rpy(state);
+        let (roll, pitch, _yaw) = rpy(state);
+
+        let roll_setpoint = -20.0_f64.to_radians();
+        let roll_error = roll_setpoint - roll;
+        let roll = 0.5 * roll_error;
 
         let velocity = nalgebra::Vector3::new(state[0], state[1], state[2]);
         let airspeed = velocity.norm();
@@ -58,14 +62,15 @@ impl Controller {
         let pitch = pitchrate_kp * pitchrate_error + self.pitch_integrator;
 
         self.test += dt;
-        let pitch = if self.test > 0.5 { pitch } else { 0.35 };
+        // let pitch = if self.test > 0.5 { pitch } else { 0.35 };
+        let roll = if self.test > 0.25 { roll } else { 0.3 };
         if self.test > 7.0 {
             self.test = 0.0;
         }
 
         // Placeholder for control input calculation
         ControlInput {
-            roll: 0.0,
+            roll,
             pitch,
             yaw: 0.0,
             throttle,

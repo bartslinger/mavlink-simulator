@@ -31,8 +31,9 @@ impl<
         heading_deg: f64,
     ) -> Self {
         let pitch = pitch_deg.to_radians();
+        let roll = 0.0_f64.to_radians();
         // calculate quaternion from initial roll, pitch, yaw rotation
-        let half_roll: f64 = 0.0 * 0.5;
+        let half_roll: f64 = roll * 0.5;
         let half_pitch: f64 = pitch * 0.5;
         let half_yaw: f64 = heading_deg.to_radians() * 0.5;
 

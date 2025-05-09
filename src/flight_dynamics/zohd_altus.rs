@@ -12,7 +12,7 @@ const G: f64 = 9.80665; // Gravitational acceleration (m/s^2)
 // Airplane geometry
 const CBAR: f64 = 0.154; // Mean Aerodynamic Chord (m)
 
-// const B: f64 = 0.980; // Wing span (m)
+const B: f64 = 0.980; // Wing span (m)
 
 const S: f64 = 0.147; // Wing planform area (m^2)
 
@@ -59,12 +59,12 @@ impl DynamicsModel<INPUTS, ADDITIONAL_OUTPUTS> for ZohdAltusModel {
         control_input: &nalgebra::SVector<f64, INPUTS>,
     ) -> (Forces, Moments, nalgebra::SVector<f64, ADDITIONAL_OUTPUTS>) {
         let (u, v, w) = (state[0], state[1], state[2]);
-        let (_p, q, _r) = (state[3], state[4], state[5]);
+        let (p, q, r) = (state[3], state[4], state[5]);
 
         // Define vectors
         let V_b = nalgebra::Vector3::new(u, v, w);
 
-        // let d_a = control_input[0]; // d_A (aileron)
+        let d_a = control_input[0]; // d_A (aileron)
         let d_e = control_input[1]; // d_e (elevator)
                                     // let d_r = control_input[2]; // d_R (rudder)
         let d_th1 = control_input[3]; // d_th1 (throttle 1)
@@ -76,7 +76,7 @@ impl DynamicsModel<INPUTS, ADDITIONAL_OUTPUTS> for ZohdAltusModel {
 
         // Calculate alpha and beta
         let alpha = w.atan2(u);
-        let _beta = (v / V_a).asin();
+        let beta = (v / V_a).asin();
 
         // Calculate dynamic pressure
         let dynamic_pressure = 0.5 * RHO * V_a.powi(2);
@@ -105,15 +105,37 @@ impl DynamicsModel<INPUTS, ADDITIONAL_OUTPUTS> for ZohdAltusModel {
 
         let q_hat = q * CBAR / (2.0 * V_a);
         let Cm = CM0 + CMA * alpha + CMQ * q_hat + CMDE * d_e;
-        let M_sf = Cm * dynamic_pressure * S * CBAR;
-        let M_bf = M_sf;
+        let My_sf = Cm * dynamic_pressure * S * CBAR;
+        let My_bf = My_sf;
+
+        let p_hat = p * B / (2.0 * V_a);
+        let r_hat = r * B / (2.0 * V_a);
+
+        let CLp = -0.46186; // Roll moment coefficient (aileron)
+        let CLr = 0.07411;
+        let CLda = 0.4;
+        let Cl = CLp * p_hat + CLr * r_hat + CLda * d_a; // Roll moment coefficient (aileron)
+        let Mx_bf = Cl * dynamic_pressure * S * B;
+
+        let CNb = 0.07990;
+        let CNp = -0.02040;
+        let CNr = -0.07241;
+        let Cn = CNb * beta + CNp * p_hat + CNr * r_hat;
+        let Mz_bf = Cn * dynamic_pressure * S * B;
+
+        // Side force
+        let CYb = -0.17847;
+        let CYp = -0.01878;
+        let CYr = 0.16087;
+        let CY = CYb * beta + CYp * p_hat + CYr * r_hat;
+        let Y_bf = nalgebra::Vector3::new(0.0, CY * dynamic_pressure * S * B, 0.0);
 
         let g_ned = nalgebra::Vector3::new(0.0, 0.0, G);
         let g_bf = rotation_matrix.transpose() * g_ned;
         let Fg_bf = self.mass() * g_bf;
 
-        let F_bf = Fg_bf + L_bf + D_bf + T_bf;
-        let M_bf = nalgebra::Vector3::new(0.0, M_bf, 0.0);
+        let F_bf = Fg_bf + L_bf + D_bf + T_bf + Y_bf;
+        let M_bf = nalgebra::Vector3::new(Mx_bf, My_bf, Mz_bf);
 
         (
             // nalgebra::Vector3::zeros(),

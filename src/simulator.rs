@@ -28,7 +28,7 @@ impl Simulator {
         let mut physics_interval = tokio::time::interval(tokio::time::Duration::from_millis(5));
         let mut broadcast_1hz_interval = tokio::time::interval(tokio::time::Duration::from_secs(2));
         let mut broadcast_5hz_interval =
-            tokio::time::interval(tokio::time::Duration::from_millis(200));
+            tokio::time::interval(tokio::time::Duration::from_millis(20));
 
         loop {
             // tokio::select! code can't be auto-formatted, so using this enum workaround instead
