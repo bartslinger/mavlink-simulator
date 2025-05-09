@@ -1,4 +1,4 @@
-use crate::controller::{ControlSetpoint, Controller};
+use crate::controller::{rpy, ControlSetpoint, Controller};
 use crate::fixed_wing::{global_position, ControlInput, FixedWing};
 use crate::flight_dynamics::zohd_altus::ZohdAltusModel;
 use crate::flight_dynamics::RigidBody;
@@ -21,8 +21,8 @@ impl Simulator {
             body,
             nalgebra::Vector3::new(53.25230577819744, 5.06370256065469, initial_altitude),
             18.423,
-            1.0,
-            45.0,
+            15.0,
+            55.0,
         );
         let mut controller = Controller::new();
         let mut physics_interval = tokio::time::interval(tokio::time::Duration::from_millis(5));
@@ -49,7 +49,7 @@ impl Simulator {
                     let control_input = controller.calculate_control_input(
                         &fixed_wing.state,
                         ControlSetpoint {
-                            altitude: (200.0 - initial_altitude),
+                            altitude: (100.0 - initial_altitude),
                             airspeed: 18.423,
                         },
                         physics_interval.period().as_secs_f64(),
@@ -93,6 +93,21 @@ impl Simulator {
                             vy: 0,
                             vz: 0,
                             hdg: (rpy_deg[2] * 100.0) as u16,
+                        },
+                    );
+                    if let Err(e) = downlink_tx.try_send(message) {
+                        tracing::error!("Downlink channel error: {:?}", e);
+                    }
+                    let (roll, pitch, yaw) = rpy(&fixed_wing.state);
+                    let message = mavlink::ardupilotmega::MavMessage::ATTITUDE(
+                        mavlink::ardupilotmega::ATTITUDE_DATA {
+                            time_boot_ms: 0,
+                            roll: roll as f32,
+                            pitch: pitch as f32,
+                            yaw: yaw as f32,
+                            rollspeed: 0.0,
+                            pitchspeed: 0.0,
+                            yawspeed: 0.0,
                         },
                     );
                     if let Err(e) = downlink_tx.try_send(message) {
