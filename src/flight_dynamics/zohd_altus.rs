@@ -111,10 +111,11 @@ impl DynamicsModel<INPUTS, ADDITIONAL_OUTPUTS> for ZohdAltusModel {
         let p_hat = p * B / (2.0 * V_a);
         let r_hat = r * B / (2.0 * V_a);
 
+        let Clb = -0.02021;
         let CLp = -0.46186; // Roll moment coefficient (aileron)
         let CLr = 0.07411;
         let CLda = 0.4;
-        let Cl = CLp * p_hat + CLr * r_hat + CLda * d_a; // Roll moment coefficient (aileron)
+        let Cl = Clb * beta + CLp * p_hat + CLr * r_hat + CLda * d_a; // Roll moment coefficient (aileron)
         let Mx_bf = Cl * dynamic_pressure * S * B;
 
         let CNb = 0.07990;
