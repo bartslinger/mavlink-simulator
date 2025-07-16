@@ -5,6 +5,7 @@ pub struct ControlSetpoint {
     pub altitude: f64,
     pub airspeed: f64,
 }
+
 pub struct Controller {
     throttle_integrator: f64,
     pitch_integrator: f64,
@@ -44,11 +45,11 @@ impl Controller {
 
         let altitude_error = setpoint.altitude - altitude;
         self.altitude_integrator += 0.05 * altitude_error * dt;
-        self.altitude_integrator = self.altitude_integrator.max(-5.0).min(5.0);
+        self.altitude_integrator = self.altitude_integrator.clamp(-5.0, 5.0);
 
-        let pitch_setpoint = (altitude_error * 0.7 + self.altitude_integrator);
+        let pitch_setpoint = altitude_error * 0.7 + self.altitude_integrator;
         // constrain
-        let pitch_setpoint = pitch_setpoint.max(-20.0).min(20.0).to_radians();
+        let pitch_setpoint = pitch_setpoint.clamp(-20.0, 20.0).to_radians();
 
         // let pitch_setpoint = -2.0_f64.to_radians();
         let pitch_error = pitch_setpoint - pitch;

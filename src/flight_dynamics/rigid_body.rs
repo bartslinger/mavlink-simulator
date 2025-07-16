@@ -15,29 +15,9 @@
 //     pd: f64,
 // }
 
-use std::fmt::Display;
-
 pub type State = nalgebra::SVector<f64, 13>;
 
 pub type StateDerivative = nalgebra::SVector<f64, 13>;
-
-#[derive(Debug)]
-pub struct InitialCondition {
-    pub velocity: nalgebra::Vector3<f64>,
-    pub angular_velocity: nalgebra::Vector3<f64>,
-    pub rotation: nalgebra::Vector3<f64>,
-    pub position: nalgebra::Vector3<f64>,
-}
-
-impl Display for InitialCondition {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "velocity:\t{}\nangular_velocity:\t{}\nrotation:\t{}\nposition:\t{}",
-            self.velocity, self.angular_velocity, self.rotation, self.position
-        )
-    }
-}
 
 pub type Forces = nalgebra::Vector3<f64>;
 pub type Moments = nalgebra::Vector3<f64>;

@@ -1,5 +1,5 @@
 use crate::controller::{rpy, ControlSetpoint, Controller};
-use crate::fixed_wing::{global_position, ControlInput, FixedWing};
+use crate::fixed_wing::{global_position, FixedWing};
 use crate::flight_dynamics::zohd_altus::ZohdAltusModel;
 use crate::flight_dynamics::RigidBody;
 
@@ -32,12 +32,14 @@ impl Simulator {
 
         loop {
             // tokio::select! code can't be auto-formatted, so using this enum workaround instead
+            #[allow(clippy::large_enum_variant)]
             enum Trigger {
                 PhysicsInterval,
                 Broadcast1HzInterval,
                 Broadcast5HzInterval,
                 Uplink(Option<mavlink::ardupilotmega::MavMessage>),
             }
+
             let trigger = tokio::select! {
                 _ = physics_interval.tick() => Trigger::PhysicsInterval,
                 _ = broadcast_1hz_interval.tick() => Trigger::Broadcast1HzInterval,
